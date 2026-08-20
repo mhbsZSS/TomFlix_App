@@ -3,7 +3,7 @@ from mysql.connector import Error
 import os
 from dotenv import load_dotenv
 
-# O Pulo do Gato: load_dotenv() puxa as variáveis do arquivo .env para a memória
+# load_dotenv() puxa as variáveis do arquivo .env para a memória
 load_dotenv()
 
 def get_db_connection():
