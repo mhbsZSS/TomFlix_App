@@ -21,7 +21,7 @@ def tela_login(request: Request):
     if request.session.get("usuario_id"):
         return RedirectResponse(url="/catalogo", status_code=303)
     
-    # O Pulo do Gato: Parâmetros declarados explicitamente resolvem o bug do dict!
+    # Parâmetros declarados explicitamente resolvem o bug do dict!
     return templates.TemplateResponse(request=request, name="login.html")
 
 @app.post("/cadastrar")
@@ -32,7 +32,7 @@ def cadastrar_usuario(request: Request, nome: str = Form(...), email: str = Form
         raise HTTPException(status_code=500, detail="Erro de banco de dados")
     
     cursor = conn.cursor()
-    senha_segura = gerar_hash_senha(senha) # O Pulo do Gato da segurança
+    senha_segura = gerar_hash_senha(senha) # segurança
     
     try:
         query = "INSERT INTO usuarios (nome, email, senha_hash) VALUES (%s, %s, %s)"
@@ -61,7 +61,7 @@ def realizar_login(request: Request, email: str = Form(...), senha: str = Form(.
     conn.close()
     
     if usuario and verificar_senha(senha, usuario[1]):
-        # O Pulo do Gato da Segregação: gravamos o ID na sessão!
+        # Segregação: gravamos o ID na sessão!
         request.session["usuario_id"] = usuario[0]
         return RedirectResponse(url="/catalogo", status_code=303)
     
@@ -88,7 +88,6 @@ def favoritar_filme(
     cursor = conn.cursor()
     
     try:
-        # A regra do professor pede um UNIQUE no banco para não favoritar 2x.
         # Usamos try/except para ignorar o erro caso ele clique duas vezes.
         query = """
             INSERT INTO favoritos (usuario_id, tmdb_movie_id, titulo, poster_path)
@@ -97,7 +96,7 @@ def favoritar_filme(
         cursor.execute(query, (usuario_id, tmdb_movie_id, titulo, poster_path))
         conn.commit()
     except Exception:
-        conn.rollback() # Ignora se já estiver favoritado
+        conn.rollback()
     finally:
         cursor.close()
         conn.close()
