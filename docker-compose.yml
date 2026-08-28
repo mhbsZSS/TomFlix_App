@@ -36,6 +36,8 @@ services:
       - DB_USER=root
       - DB_PASSWORD=root_password
       - DB_NAME=tomflix_db
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
     depends_on:
       - auth-service
       - db
