@@ -1,22 +1,13 @@
-version: '3.8'
-
-services:
+# 1. Banco de Dados: Totalmente interno
   db:
     image: mariadb:latest
     container_name: tomflix_db
-    environment:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: tomflix_db
-    ports:
-      - "8221:8000" 
-    volumes:
-      - db_data:/var/lib/mysql
+    # NÃO coloque "ports:" aqui
 
+  # 2. Serviço de Autenticação: "sem porta publicada"
   auth-service:
     build: ./auth_service
     container_name: tomflix_auth_service
-    ports:
-      - "8221:8000"
     environment:
       - DB_HOST=db
       - DB_USER=root
@@ -27,16 +18,14 @@ services:
     depends_on:
       - db
 
+  # 3. Catálogo (App): O ÚNICO ponto de entrada público
   app:
     build: .
     container_name: tomflix_app
     ports:
-      - "8221:8000"
+      - "8221:8000" 
     environment:
       - AUTH_URL=http://auth-service:3000
     depends_on:
       - auth-service
       - db
-
-volumes:
-  db_data:
