@@ -58,4 +58,5 @@ Nesta segunda etapa, a arquitetura foi refatorada para isolar a responsabilidade
 
 ---
 *Desenvolvido por Marcio Hernani - Estudante de Tecnologia em Sistemas Inteligentes*
+---
 *Disciplina: Computação em Nuvem - Professor Me. Allan L. R. Siriani* - (@siriani).
