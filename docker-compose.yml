@@ -1,10 +1,11 @@
 version: '3.8'
 
 services:
-  tomflix-app:
+  # 1. CATÁLOGO (Ponto de entrada público)
+  tomflix-app: 
     build: .
     ports:
-      - "8221:8000"
+      - "8221:8000" # Única porta exposta para a internet
     environment:
       - DB_HOST=${DB_HOST}
       - DB_USER=${DB_USER}
@@ -13,3 +14,26 @@ services:
       - TMDB_API_KEY=${TMDB_API_KEY}
       - SECRET_KEY=${SECRET_KEY}
     restart: always
+    networks:
+      - rede_interna
+
+  # 2. MICROSSERVIÇO DE AUTENTICAÇÃO (Isolado)
+  auth-service:
+    build: ./auth_service # Criaremos esta pasta no próximo passo
+    # O "Pulo do Gato": NÃO publicamos portas aqui (sem a chave 'ports')!
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - SECRET_KEY=${SECRET_KEY}
+      - SMTP_USER=${SMTP_USER} # Para o Mailtrap depois
+      - SMTP_PASS=${SMTP_PASS}
+    restart: always
+    networks:
+      - rede_interna
+
+# 3. REDE COMPARTILHADA
+networks:
+  rede_interna:
+    driver: bridge

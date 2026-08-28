@@ -75,9 +75,8 @@
     </style>
 </head>
 <body>
-
     <div class="container">
-        <!-- Seção de Login -->
+        <!-- Seção de Login e Recuperação -->
         <div class="form-section">
             <h2>Entrar no TomFlix</h2>
             <form action="/login" method="POST">
@@ -85,6 +84,18 @@
                 <input type="password" name="senha" placeholder="Senha" required>
                 <button type="submit">Fazer Login</button>
             </form>
+
+            <!-- O Pulo do Gato Visual: Tudo dentro da mesma coluna -->
+            <hr style="border: 0; height: 1px; background: #444; margin: 25px 0 15px 0;">
+            
+            <div class="esqueci-senha-container">
+                <h3 style="font-size: 1.1rem; margin-top: 0; color: #ccc;">Esqueci minha senha</h3>
+                <p style="font-size: 0.85rem; color: #999; margin-bottom: 15px;">Insira seu e-mail para receber o link de redefinição.</p>
+                <form action="/esqueci-senha" method="POST">
+                    <input type="email" name="email" placeholder="Seu e-mail cadastrado" required>
+                    <button type="submit" style="background-color: #444; border: 1px solid #555;">Enviar link</button>
+                </form>
+            </div>
         </div>
 
         <div class="divider"></div>
@@ -95,11 +106,53 @@
             <form action="/cadastrar" method="POST">
                 <input type="text" name="nome" placeholder="Seu Nome" required>
                 <input type="email" name="email" placeholder="Seu E-mail" required>
-                <input type="password" name="senha" placeholder="Crie uma Senha" required>
+                <input type="passworddocker-compose up --build" name="senha" placeholder="Crie uma Senha" required>
                 <button type="submit" style="background-color: #333; border: 1px solid #E50914;">Cadastrar-se</button>
             </form>
         </div>
     </div>
-
 </body>
+
+<!-- Sistema de Notificações (Estilo Flutuante / Pop-up) -->
+    <div id="notificacao" style="display: none; position: fixed; top: 30px; left: 50%; transform: translateX(-50%); padding: 15px 30px; text-align: center; font-weight: bold; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.8); z-index: 1000; min-width: 350px;"></div>
+    
+    <script>
+        // Captura os parâmetros da URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const msg = urlParams.get('msg');
+        const box = document.getElementById('notificacao');
+
+        if (msg) {
+            box.style.display = 'block';
+            box.style.color = 'white';
+            
+            // Sucessos (Verde)
+            if (msg === 'cadastro_sucesso') {
+                box.style.backgroundColor = '#28a745'; 
+                box.innerHTML = 'Cadastro realizado com sucesso! Você já pode fazer login.';
+            } else if (msg === 'email_enviado') {
+                box.style.backgroundColor = '#17a2b8'; 
+                box.innerHTML = 'Se o e-mail estiver cadastrado, um link de recuperação foi enviado.';
+            } else if (msg === 'senha_alterada') {
+                box.style.backgroundColor = '#28a745'; 
+                box.innerHTML = 'Senha alterada com sucesso! Faça login com a nova senha.';
+            } 
+            // Erros (Vermelho)
+            else if (msg === 'token_invalido') {
+                box.style.backgroundColor = '#E50914'; // Vermelho TomFlix
+                box.innerHTML = 'Este link de recuperação é inválido ou já expirou. Solicite um novo.';
+            } else if (msg === 'erro_login') {
+                box.style.backgroundColor = '#E50914';
+                box.innerHTML = 'E-mail ou senha incorretos.';
+            } else if (msg === 'erro_cadastro') {
+                box.style.backgroundColor = '#E50914';
+                box.innerHTML = 'Erro ao cadastrar. Este e-mail já pode estar em uso.';
+            } else if (msg === 'erro_offline') {
+                box.style.backgroundColor = '#ffc107'; // Amarelo
+                box.style.color = 'black';
+                box.innerHTML = 'O sistema de autenticação está temporariamente offline.';
+            }
+        }
+    </script>
+
 </html>

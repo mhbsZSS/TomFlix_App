@@ -3,73 +3,73 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import os
-import requests
+import requests # O Pulo do Gato: Biblioteca para fazer requisições HTTP internas
 from database import get_db_connection
-from security import gerar_hash_senha, verificar_senha
 
 app = FastAPI(title="TomFlix App")
 
-# Ativa as sessões usando a chave secreta do seu .env
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY"))
-
-# Aponta para a pasta onde criaremos nossos arquivos de tela (HTML)
 templates = Jinja2Templates(directory="templates")
+
+# Endereço interno do microsserviço (definido no docker-compose.yml)
+AUTH_URL = "http://auth-service:3000"
 
 @app.get("/", response_class=HTMLResponse)
 def tela_login(request: Request):
-    """Rota inicial: Mostra o login ou redireciona se já estiver logado."""
     if request.session.get("usuario_id"):
         return RedirectResponse(url="/catalogo", status_code=303)
-    
-    # Parâmetros declarados explicitamente resolvem o bug do dict!
     return templates.TemplateResponse(request=request, name="login.html")
 
 @app.post("/cadastrar")
 def cadastrar_usuario(request: Request, nome: str = Form(...), email: str = Form(...), senha: str = Form(...)):
-    """Recebe os dados, aplica o hash na senha e salva no MariaDB/MySQL."""
-    conn = get_db_connection()
-    if not conn:
-        raise HTTPException(status_code=500, detail="Erro de banco de dados")
-    
-    cursor = conn.cursor()
-    senha_segura = gerar_hash_senha(senha) # segurança
-    
     try:
-        query = "INSERT INTO usuarios (nome, email, senha_hash) VALUES (%s, %s, %s)"
-        cursor.execute(query, (nome, email, senha_segura))
-        conn.commit()
-    except Exception as e:
-        conn.close()
-        raise HTTPException(status_code=400, detail="Erro ao cadastrar. E-mail pode já estar em uso.")
-    
-    cursor.close()
-    conn.close()
-    
-    # Redireciona de volta para a tela inicial para o usuário fazer login
-    return RedirectResponse(url="/", status_code=303)
+        resposta = requests.post(f"{AUTH_URL}/cadastrar", data={"nome": nome, "email": email, "senha": senha}, timeout=10)
+        if resposta.status_code == 200:
+            return RedirectResponse(url="/?msg=cadastro_sucesso", status_code=303)
+        # O Pulo do Gato: Redireciona com mensagem de erro em vez de tela preta
+        return RedirectResponse(url="/?msg=erro_cadastro", status_code=303)
+    except requests.exceptions.RequestException:
+        return RedirectResponse(url="/?msg=erro_offline", status_code=303)
 
 @app.post("/login")
 def realizar_login(request: Request, email: str = Form(...), senha: str = Form(...)):
-    """Verifica credenciais e inicia a sessão do usuário."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT id, senha_hash FROM usuarios WHERE email = %s", (email,))
-    usuario = cursor.fetchone()
-    
-    cursor.close()
-    conn.close()
-    
-    if usuario and verificar_senha(senha, usuario[1]):
-        # Segregação: gravamos o ID na sessão!
-        request.session["usuario_id"] = usuario[0]
-        return RedirectResponse(url="/catalogo", status_code=303)
-    
-    raise HTTPException(status_code=401, detail="E-mail ou senha inválidos")
+    try:
+        resposta = requests.post(f"{AUTH_URL}/login", data={"email": email, "senha": senha}, timeout=10)
+        if resposta.status_code == 200:
+            dados = resposta.json()
+            request.session["usuario_id"] = dados["usuario_id"]
+            request.session["role"] = dados["role"] 
+            return RedirectResponse(url="/catalogo", status_code=303)
+        # Redireciona em caso de credencial inválida
+        return RedirectResponse(url="/?msg=erro_login", status_code=303)
+    except requests.exceptions.RequestException:
+        return RedirectResponse(url="/?msg=erro_offline", status_code=303)
 
+@app.post("/esqueci-senha")
+def esqueci_senha(request: Request, email: str = Form(...)):
+    try:
+        requests.post(f"{AUTH_URL}/esqueci-senha", data={"email": email}, timeout=10)
+        return RedirectResponse(url="/?msg=email_enviado", status_code=303)
+    except requests.exceptions.RequestException:
+        return RedirectResponse(url="/?msg=erro_offline", status_code=303)
+    
+@app.get("/nova-senha", response_class=HTMLResponse)
+def tela_nova_senha(request: Request, token: str):
+    return templates.TemplateResponse(request=request, name="nova_senha.html", context={"token": token})
+
+@app.post("/resetar-senha")
+def resetar_senha(request: Request, token: str = Form(...), nova_senha: str = Form(...)):
+    try:
+        resposta = requests.post(f"{AUTH_URL}/resetar-senha", data={"token": token, "nova_senha": nova_senha}, timeout=10)
+        if resposta.status_code == 200:
+            return RedirectResponse(url="/?msg=senha_alterada", status_code=303)
+        # Captura o token inválido/expirado e devolve para o início
+        return RedirectResponse(url="/?msg=token_invalido", status_code=303)
+    except requests.exceptions.RequestException:
+        return RedirectResponse(url="/?msg=erro_offline", status_code=303)
+            
 @app.get("/logout")
 def sair(request: Request):
-    """Limpa a sessão, essencial para testar múltiplas contas."""
     request.session.clear()
     return RedirectResponse(url="/", status_code=303)
 

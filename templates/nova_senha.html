@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TomFlix - Redefinir Senha</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #141414;
+            color: #ffffff;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            display: flex;
+            background: #222;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            justify-content: center;
+        }
+        .form-section {
+            width: 300px;
+        }
+        h2 {
+            margin-top: 0;
+            font-size: 1.5rem;
+            border-bottom: 2px solid #E50914;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        p {
+            font-size: 0.9rem;
+            color: #ccc;
+            margin-bottom: 20px;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            background: #333;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 6px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #E50914;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #E50914;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #f6121d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-section">
+            <h2>Criar Nova Senha</h2>
+            <p>Digite sua nova senha de acesso abaixo.</p>
+            
+            <form action="/resetar-senha" method="POST">
+                <input type="hidden" name="token" value="{{ token }}">
+                <input type="password" name="nova_senha" placeholder="Sua nova senha" required>
+                <button type="submit">Salvar nova senha</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
