@@ -31,6 +31,11 @@ services:
     environment:
       - AUTH_URL=http://auth-service:3000
       - TMDB_API_KEY=${TMDB_API_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=root_password
+      - DB_NAME=tomflix_db
     depends_on:
       - auth-service
       - db
