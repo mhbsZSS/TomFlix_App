@@ -54,7 +54,7 @@ Nesta segunda etapa, a arquitetura foi refatorada para isolar a responsabilidade
 
 **4. Notificação de Sucesso:**
 *Comprova a sincronização do backend com a interface, exibindo alerta verde após a troca da senha.*
-![Sucesso na Troca de Senha](assets\img\alteracaoSenha.png)
+![Sucesso na Troca de Senha](assets/img/alteracaoSenha.png)
 
 ---
 *Desenvolvido por Marcio Hernani - Estudante de Tecnologia em Sistemas Inteligentes*
