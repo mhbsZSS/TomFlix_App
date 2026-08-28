@@ -17,13 +17,13 @@ Nesta primeira etapa, o objetivo foi construir a interface principal da aplicaç
 ### Evidências Visuais (Atividade 1)
 
 **1. Tela de Login e Cadastro (Visual Dark Mode):**
-![Tela de Login](assets\img\telaLogin.png)
+![Tela de Login](assets/img/telaLogin.png)
 
 **2. Catálogo de Filmes e Integração TMDB:**
-![Tela do Catálogo](assets\img\catalogoTomflix.png)
+![Tela do Catálogo](assets/img/catalogoTomflix.png)
 
 **3. Tabela de Usuários no Banco de Dados:**
-![Banco de Dados](assets\img\bancoDados.png)
+![Banco de Dados](assets/img/bancoDados.png)
 
 ---
 
@@ -42,15 +42,15 @@ Nesta segunda etapa, a arquitetura foi refatorada para isolar a responsabilidade
 
 **1. Recebimento do E-mail de Recuperação (Mailtrap):**
 *Comprova a comunicação do microsserviço com o servidor SMTP através da porta 587.*
-![E-mail no Mailtrap](assets\img\emailMailTrap.png)
+![E-mail no Mailtrap](assets/img/emailMailTrap.png)
 
 **2. Tela de Redefinição de Senha:**
 *Interface padronizada que injeta o token temporal oculto.*
-![Nova Senha](assets\img\novaSenha.png)
+![Nova Senha](assets/img/novaSenha.png)
 
 **3. Validação de Segurança (Token Expirado/Inválido):**
 *Comprova que o sistema recusa a reutilização de links, exibindo alerta vermelho dinâmico.*
-![Erro de Token Inválido](assets\img\erroTokenInvalido.png)
+![Erro de Token Inválido](assets/img/erroTokenInvalido.png)
 
 **4. Notificação de Sucesso:**
 *Comprova a sincronização do backend com a interface, exibindo alerta verde após a troca da senha.*
