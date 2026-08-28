@@ -1,39 +1,42 @@
 version: '3.8'
 
 services:
-  # 1. CATÁLOGO (Ponto de entrada público)
-  tomflix-app: 
-    build: .
+  db:
+    image: mariadb:latest
+    container_name: tomflix_db
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: tomflix_db
     ports:
-      - "8221:8000" # Única porta exposta para a internet
-    environment:
-      - DB_HOST=${DB_HOST}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
-      - TMDB_API_KEY=${TMDB_API_KEY}
-      - SECRET_KEY=${SECRET_KEY}
-    restart: always
-    networks:
-      - rede_interna
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
 
-  # 2. MICROSSERVIÇO DE AUTENTICAÇÃO (Isolado)
   auth-service:
-    build: ./auth_service # Criaremos esta pasta no próximo passo
-    # O "Pulo do Gato": NÃO publicamos portas aqui (sem a chave 'ports')!
+    build: ./auth_service
+    container_name: tomflix_auth_service
+    ports:
+      - "3000:3000"
     environment:
-      - DB_HOST=${DB_HOST}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
-      - SECRET_KEY=${SECRET_KEY}
-      - SMTP_USER=${SMTP_USER} # Para o Mailtrap depois
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=root_password
+      - DB_NAME=tomflix_db
+      - SMTP_USER=${SMTP_USER}
       - SMTP_PASS=${SMTP_PASS}
-    restart: always
-    networks:
-      - rede_interna
+    depends_on:
+      - db
 
-# 3. REDE COMPARTILHADA
-networks:
-  rede_interna:
-    driver: bridge
+  app:
+    build: .
+    container_name: tomflix_app
+    ports:
+      - "8221:80"
+    environment:
+      - AUTH_URL=http://auth-service:3000
+    depends_on:
+      - auth-service
+      - db
+
+volumes:
+  db_data:
