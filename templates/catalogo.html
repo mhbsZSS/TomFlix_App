@@ -136,14 +136,29 @@
 
                 {% if comentarios.get(filme.id) %}
                     <div class="area-comentarios">
-                        <h4>Seus Comentários:</h4>
+                        <h4>Comentários:</h4> <!-- Alterado pois agora mostra de todos -->
                         <ul>
-                            {% for texto in comentarios[filme.id] %}
-                                <li>{{ texto }}</li>
+                            {% for comentario in comentarios[filme.id] %}
+                                <li style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                    <span>{{ comentario.texto }}</span>
+                                    
+                                    <!-- ========================================== -->
+                                    <!-- LÓGICA DE INTERFACE (Botão de Moderação) -->
+                                    <!-- ========================================== -->
+                                    <!-- Se o usuário for admin OU for o dono do comentário, o botão aparece -->
+                                    {% if role == 'admin' or comentario.usuario_id == usuario_logado_id %}
+                                        <form action="/apagar-comentario/{{ comentario.id }}" method="POST" style="margin: 0;">
+                                            <button type="submit" style="background-color: #E50914; color: white; border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 0.75rem; font-weight: bold;">
+                                                Apagar
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                </li>
                             {% endfor %}
                         </ul>
                     </div>
                 {% endif %}
+                
             </div>
         </div>
         {% endfor %}

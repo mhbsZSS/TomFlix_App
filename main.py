@@ -125,6 +125,45 @@ def comentar_filme(
         conn.close()
 
     return RedirectResponse(url="/catalogo", status_code=303)
+@app.post("/apagar-comentario/{comentario_id}")
+def apagar_comentario(request: Request, comentario_id: int):
+    usuario_id = request.session.get("usuario_id")
+    role = request.session.get("role")
+
+    if not usuario_id:
+        return RedirectResponse(url="/", status_code=303)
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # 1. Busca quem é o dono original do comentário no banco
+        cursor.execute("SELECT usuario_id FROM comentarios WHERE id = %s", (comentario_id,))
+        resultado = cursor.fetchone()
+        
+        if not resultado:
+            raise HTTPException(status_code=404, detail="Comentário não encontrado.")
+            
+        dono_id = resultado[0]
+
+        # ==========================================
+        # 2. ENFORCEMENT (RBAC de verdade)
+        # ==========================================
+        # Regra: Se o usuário NÃO for admin E NÃO for o dono do comentário -> Bloqueia com 403
+        if role != "admin" and dono_id != usuario_id:
+            raise HTTPException(
+                status_code=403, 
+                detail="Acesso negado: Apenas administradores podem apagar comentários de outros usuários."
+            )
+
+        # 3. Executa a ação caso passe pela barreira
+        cursor.execute("DELETE FROM comentarios WHERE id = %s", (comentario_id,))
+        conn.commit()
+
+        return RedirectResponse(url="/catalogo", status_code=303)
+    finally:
+        cursor.close()
+        conn.close()
 
 @app.get("/catalogo", response_class=HTMLResponse)
 def exibir_catalogo(request: Request):
@@ -154,28 +193,34 @@ def exibir_catalogo(request: Request):
     cursor.execute("SELECT tmdb_movie_id FROM favoritos WHERE usuario_id = %s", (usuario_id,))
     favoritos_ids = [linha[0] for linha in cursor.fetchall()]
 
-    # Busca os comentários do usuário logado
-    cursor.execute("SELECT tmdb_movie_id, texto FROM comentarios WHERE usuario_id = %s ORDER BY criado_em DESC", (usuario_id,))
+    # Busca TODOS os comentários (trazendo o ID do comentário e quem escreveu)
+    cursor.execute("SELECT id, tmdb_movie_id, texto, usuario_id FROM comentarios ORDER BY criado_em DESC")
     comentarios_db = cursor.fetchall()
     
     cursor.close()
     conn.close()
 
-    # Agrupa os comentários por ID do filme para facilitar no HTML
+    # Agrupa os comentários como dicionários para o HTML ter acesso aos IDs
     comentarios_por_filme = {}
-    for movie_id, texto in comentarios_db:
+    for cid, movie_id, texto, uid in comentarios_db:
         if movie_id not in comentarios_por_filme:
             comentarios_por_filme[movie_id] = []
-        comentarios_por_filme[movie_id].append(texto)
+        comentarios_por_filme[movie_id].append({
+            "id": cid,
+            "texto": texto,
+            "usuario_id": uid
+        })
 
     # --- 3. RENDERIZAÇÃO ---
+    # Enviamos também a 'role' e o 'usuario_id' para o HTML saber quando desenhar o botão de apagar
     return templates.TemplateResponse(
         request, 
         "catalogo.html", 
         {
             "filmes": filmes,
             "favoritos": favoritos_ids,
-            "comentarios": comentarios_por_filme
+            "comentarios": comentarios_por_filme,
+            "role": request.session.get("role"),
+            "usuario_logado_id": usuario_id
         }
-    
     )
