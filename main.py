@@ -188,7 +188,14 @@ def exibir_catalogo(request: Request):
     # --- 2. BUSCA NO BANCO DE DADOS (SEGREGAÇÃO) ---
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
+    # -----------------------------------------------------
+    # NOVO: Busca o nome do usuário logado para o cabeçalho
+    # -----------------------------------------------------
+    cursor.execute("SELECT nome FROM usuarios WHERE id = %s", (usuario_id,))
+    resultado_usuario = cursor.fetchone()
+    nome_usuario = resultado_usuario[0] if resultado_usuario else "Usuário"
+
     # Busca os favoritos do usuário logado
     cursor.execute("SELECT tmdb_movie_id FROM favoritos WHERE usuario_id = %s", (usuario_id,))
     favoritos_ids = [linha[0] for linha in cursor.fetchall()]
@@ -221,6 +228,7 @@ def exibir_catalogo(request: Request):
             "favoritos": favoritos_ids,
             "comentarios": comentarios_por_filme,
             "role": request.session.get("role"),
-            "usuario_logado_id": usuario_id
+            "usuario_logado_id": usuario_id,
+            "nome_usuario": nome_usuario
         }
     )
