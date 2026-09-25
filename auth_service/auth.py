@@ -113,7 +113,8 @@ def esqueci_senha(email: str = Form(...)):
     smtp_from = os.getenv("SMTP_FROM", smtp_user)
     
     # Se estiver rodando no servidor da faculdade (lapps.studio), você pode ajustar a URL base se desejar
-    link = f"http://localhost:8221/nova-senha?token={token}"
+    app_url = os.getenv("APP_URL", "https://marcio-silva-isw055.lapps.studio")
+    link = f"{app_url}/nova-senha?token={token}"
     
     # Construção do E-mail com suporte a HTML
     msg = MIMEMultipart("alternative")
