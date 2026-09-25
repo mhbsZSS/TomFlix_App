@@ -40,9 +40,10 @@ Nesta segunda etapa, a arquitetura foi refatorada para isolar a responsabilidade
 
 ### Evidências Visuais (Atividade 2)
 
-**1. Recebimento do E-mail de Recuperação (Mailtrap):**
-*Comprova a comunicação do microsserviço com o servidor SMTP através da porta 587.*
+**1. Recebimento do E-mail de Recuperação (Do Sandbox à Produção):**
+*Comprova a comunicação inicial do microsserviço via sandbox (Mailtrap) e a evolução para disparo transacional real em produção via servidor SMTP do Brevo (`smtp-relay.brevo.com` na porta `587` com `STARTTLS`), utilizando `MIMEMultipart` para renderização de e-mail estilizado em HTML com botão de ação.*
 ![E-mail no Mailtrap](assets/img/emailMailTrap.png)
+![E-mail no Brevo](assets/img/emailBrevo.png)
 
 **2. Tela de Redefinição de Senha:**
 *Interface padronizada que injeta o token temporal oculto.*
@@ -113,10 +114,13 @@ O sistema rastreia e armazena centralmente ações críticas, registrando *Quem*
 ### Evidências Visuais (Atividade 5)
 
 **1. A Nova Infraestrutura (Docker Compose):** *Comprova a adição do serviço Redis e do Log-Service operando exclusivamente na rede interna.*
-![Infraestrutura Docker](assets/img/docker_compose_redis.png)
+![Infraestrutura Docker](assets/img/docker_redis.png)
 
 **2. Consulta de Logs (Visão do Admin):** *O endpoint protegido (`/auditoria`) exibe com sucesso o fluxo de ações dos usuários organizados cronologicamente, incluindo as interceptações de erro 403.*
 ![Painel de Auditoria](assets/img/painel_auditoria.png)
+
+**3. E-mail Transacional em Produção (Brevo SMTP):** *Comprova o recebimento real do e-mail de recuperação de senha na caixa de entrada do usuário, utilizando autenticação TLS via Brevo e template estilizado em HTML com botão de ação direta para redefinição.*
+![E-mail Brevo](assets/img/emailBrevo.png)
 
 ---
 *Desenvolvido por Marcio Hernani - Estudante de Tecnologia em Sistemas Inteligentes*
