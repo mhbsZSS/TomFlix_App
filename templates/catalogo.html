@@ -107,7 +107,13 @@
                 Olá, <strong>{{ nome_usuario }}</strong> 
                 <span style="font-size: 0.8rem; color: #aaa;">[{{ role }}]</span>
             </span>
-            <a href="/logout" class="btn-logout">Sair</a>
+
+            <!-- Botão Exclusivo do Admin -->
+            {% if role == 'admin' %}
+                <a href="/auditoria" style="background-color: #E50914; color: white; text-decoration: none; padding: 5px 10px; border-radius: 3px; font-weight: bold;">Auditoria (Logs)</a>
+            {% endif %}
+
+            <a href="/logout" class="btn-logout" style="background-color: #333; color: white; text-decoration: none; padding: 5px 10px; border-radius: 3px;">Sair</a>
         </div>
     </header>
 

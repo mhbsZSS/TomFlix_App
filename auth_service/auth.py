@@ -1,13 +1,27 @@
-from fastapi import FastAPI, Form, HTTPException
+import requests
+from fastapi import FastAPI, Form, HTTPException, Request
 import mysql.connector
 import bcrypt
 import uuid
 import smtplib
 from email.mime.text import MIMEText
 from datetime import datetime, timedelta
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import os
 
 app = FastAPI(title="Microsserviço de Autenticação")
+
+LOG_URL = os.getenv("LOG_URL", "http://log-service:4000")
+
+# --- FUNÇÃO DE AUDITORIA ---
+def disparar_log_auditoria(request: Request, usuario_id: int, acao: str):
+    try:
+        ip = request.client.host if request and request.client else "Desconhecido"
+        payload = {"usuario_id": str(usuario_id), "acao": acao, "ip_origem": ip}
+        requests.post(f"{LOG_URL}/log", json=payload, timeout=2)
+    except Exception as e:
+        print(f"Aviso: Falha ao enviar log para auditoria - {e}")
 
 def get_db_connection():
     """Cria a conexão isolada do microsserviço com o banco de dados."""
@@ -43,8 +57,8 @@ def cadastrar(nome: str = Form(...), email: str = Form(...), senha: str = Form(.
     return {"status": "sucesso"}
 
 @app.post("/login")
-def login(email: str = Form(...), senha: str = Form(...)):
-    """Valida as credenciais e devolve o ID e o Papel (Role) do usuário."""
+def login(request: Request, email: str = Form(...), senha: str = Form(...)): # <-- 1. Adicionado o request aqui
+    """Valida as credenciais, dispara o log e devolve o ID e o Papel (Role) do usuário."""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
@@ -54,27 +68,34 @@ def login(email: str = Form(...), senha: str = Form(...)):
     cursor.close()
     conn.close()
 
+    # Verifica se o usuário existe e se a senha bate
     if user and bcrypt.checkpw(senha.encode('utf-8'), user['senha_hash'].encode('utf-8')):
-        return {"status": "sucesso", "usuario_id": user['id'], "role": user['role']}
+        # 2. Isolamos as variáveis para usá-las limpas
+        usuario_id = user['id']
+        role = user['role']
+
+        # --- 3. Dispara o log ANTES do return ---
+        disparar_log_auditoria(request, usuario_id, "login")
+            
+        return {"status": "sucesso", "usuario_id": usuario_id, "role": role}
     
+    # Se falhar, devolve o erro 401
     raise HTTPException(status_code=401, detail="E-mail ou senha inválidos")
 
 @app.post("/esqueci-senha")
 def esqueci_senha(email: str = Form(...)):
-    """Gera um token UUID único, salva no banco e dispara o e-mail."""
+    """Gera um token UUID único, salva no banco e dispara o e-mail HTML via Brevo."""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
     cursor.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
     user = cursor.fetchone()
     
-    # Se o usuário não existir, retornamos sucesso mesmo assim (evita enumeração/ataques)
     if not user:
         cursor.close()
         conn.close()
         return {"status": "sucesso", "message": "Se o e-mail existir, um link foi enviado."}
 
-    # Gera o token e define a expiração para 30 minutos no futuro
     token = str(uuid.uuid4())
     expira_em = datetime.now() + timedelta(minutes=30)
     
@@ -86,24 +107,57 @@ def esqueci_senha(email: str = Form(...)):
     cursor.close()
     conn.close()
 
-    # Integração real com SMTP (Mailtrap)
+    # Credenciais do Brevo vindas do ambiente
     smtp_user = os.getenv("SMTP_USER")
     smtp_pass = os.getenv("SMTP_PASS")
+    smtp_from = os.getenv("SMTP_FROM", smtp_user)
     
-    # Este link será interceptado pelo Catálogo na próxima etapa
+    # Se estiver rodando no servidor da faculdade (lapps.studio), você pode ajustar a URL base se desejar
     link = f"http://localhost:8221/nova-senha?token={token}"
     
-    msg = MIMEText(f"Acesse o link para redefinir sua senha:\n{link}\n\nEste link expira em 30 minutos.")
+    # Construção do E-mail com suporte a HTML
+    msg = MIMEMultipart("alternative")
     msg['Subject'] = 'Redefinição de Senha - TomFlix'
-    msg['From'] = 'suporte@tomflix.com'
+    msg['From'] = f"TomFlix Suporte <{smtp_from}>"
     msg['To'] = email
 
+    # Versão em texto simples (fallback de segurança)
+    texto_simples = f"Acesse o link para redefinir sua senha: {link} (Expira em 30 minutos)."
+
+    # Versão em HTML estilizada no padrão TomFlix com botão
+    html_content = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; background-color: #141414; color: #ffffff; padding: 30px; text-align: center;">
+        <div style="max-width: 500px; margin: 0 auto; background-color: #222222; padding: 30px; border-radius: 8px; border-top: 4px solid #E50914;">
+          <h1 style="color: #E50914; margin-top: 0;">TomFlix</h1>
+          <h3 style="color: #ffffff;">Recuperação de Senha</h3>
+          <p style="color: #cccccc; font-size: 15px; line-height: 1.5;">
+            Recebemos uma solicitação para redefinir a senha da sua conta. Clique no botão abaixo para criar uma nova senha:
+          </p>
+          <div style="margin: 30px 0;">
+            <a href="{link}" style="background-color: #E50914; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 16px; display: inline-block;">
+              Redefinir Minha Senha
+            </a>
+          </div>
+          <p style="color: #888888; font-size: 12px;">
+            Este link é válido por <strong>30 minutos</strong>. Se você não solicitou esta alteração, ignore este e-mail com segurança.
+          </p>
+        </div>
+      </body>
+    </html>
+    """
+
+    msg.attach(MIMEText(texto_simples, "plain", "utf-8"))
+    msg.attach(MIMEText(html_content, "html", "utf-8"))
+
     try:
-        # Trocando a porta para 587 e adicionando um limite de 10 segundos
-        with smtplib.SMTP("sandbox.smtp.mailtrap.io", 587, timeout=10) as server:
+        # Conexão oficial com o servidor SMTP do Brevo na porta 587 com TLS
+        with smtplib.SMTP("smtp-relay.brevo.com", 587, timeout=10) as server:
+            server.starttls() # Obrigatório para autenticar no Brevo
             server.login(smtp_user, smtp_pass)
-            server.sendmail(msg['From'], [msg['To']], msg.as_string())
+            server.sendmail(smtp_from, [email], msg.as_string())
     except Exception as e:
+        print(f"Erro SMTP Brevo: {e}")
         raise HTTPException(status_code=500, detail="Erro ao conectar com o serviço de e-mail.")
     
     return {"status": "sucesso", "message": "E-mail de recuperação enviado."}

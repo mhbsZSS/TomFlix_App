@@ -13,6 +13,16 @@ templates = Jinja2Templates(directory="templates")
 
 # Endereço interno do microsserviço (definido no docker-compose.yml)
 AUTH_URL = "http://auth-service:3000"
+LOG_URL = os.getenv("LOG_URL", "http://log-service:4000") # <-- ADICIONE AQUI
+
+# --- FUNÇÃO DE AUDITORIA ---
+def disparar_log_auditoria(request: Request, usuario_id: int, acao: str):
+    try:
+        ip = request.client.host if request.client else "Desconhecido"
+        payload = {"usuario_id": str(usuario_id), "acao": acao, "ip_origem": ip}
+        requests.post(f"{LOG_URL}/log", json=payload, timeout=2)
+    except Exception as e:
+        print(f"Aviso: Falha ao enviar log para auditoria - {e}")
 
 @app.get("/", response_class=HTMLResponse)
 def tela_login(request: Request):
@@ -70,6 +80,12 @@ def resetar_senha(request: Request, token: str = Form(...), nova_senha: str = Fo
             
 @app.get("/logout")
 def sair(request: Request):
+    usuario_id = request.session.get("usuario_id")
+    
+    # --- NOVO: Dispara log de auditoria de Logout antes de limpar a sessão ---
+    if usuario_id:
+        disparar_log_auditoria(request, usuario_id, "logout")
+        
     request.session.clear()
     return RedirectResponse(url="/", status_code=303)
 
@@ -95,7 +111,12 @@ def favoritar_filme(
         """
         cursor.execute(query, (usuario_id, tmdb_movie_id, titulo, poster_path))
         conn.commit()
+        
+        # --- NOVO: Dispara log de auditoria ---
+        disparar_log_auditoria(request, usuario_id, f"favoritou_filme_{tmdb_movie_id}")
+        
     except Exception:
+
         conn.rollback()
     finally:
         cursor.close()
@@ -120,6 +141,10 @@ def comentar_filme(
         query = "INSERT INTO comentarios (usuario_id, tmdb_movie_id, texto) VALUES (%s, %s, %s)"
         cursor.execute(query, (usuario_id, tmdb_movie_id, texto))
         conn.commit()
+        
+        # --- NOVO: Dispara log de auditoria ---
+        disparar_log_auditoria(request, usuario_id, f"comentou_no_filme_{tmdb_movie_id}")
+        
     finally:
         cursor.close()
         conn.close()
@@ -151,6 +176,9 @@ def apagar_comentario(request: Request, comentario_id: int):
         # ==========================================
         # Regra: Se o usuário NÃO for admin E NÃO for o dono do comentário -> Bloqueia com 403
         if role != "admin" and dono_id != usuario_id:
+            # --- NOVO: Log de Segurança (Tentativa Negada) ---
+            disparar_log_auditoria(request, usuario_id, f"tentativa_negada_403_apagar_comentario_{comentario_id}")
+            
             raise HTTPException(
                 status_code=403, 
                 detail="Acesso negado: Apenas administradores podem apagar comentários de outros usuários."
@@ -159,8 +187,12 @@ def apagar_comentario(request: Request, comentario_id: int):
         # 3. Executa a ação caso passe pela barreira
         cursor.execute("DELETE FROM comentarios WHERE id = %s", (comentario_id,))
         conn.commit()
+        
+        # --- NOVO: Log de Sucesso ---
+        disparar_log_auditoria(request, usuario_id, f"apagou_comentario_{comentario_id}")
 
         return RedirectResponse(url="/catalogo", status_code=303)
+    
     finally:
         cursor.close()
         conn.close()
@@ -230,5 +262,57 @@ def exibir_catalogo(request: Request):
             "role": request.session.get("role"),
             "usuario_logado_id": usuario_id,
             "nome_usuario": nome_usuario
+        }
+    )
+
+@app.get("/auditoria", response_class=HTMLResponse)
+def painel_auditoria(request: Request):
+    usuario_id = request.session.get("usuario_id")
+    role = request.session.get("role")
+
+    # 1. Verifica se está logado
+    if not usuario_id:
+        return RedirectResponse(url="/", status_code=303)
+        
+    # ==========================================
+    # 2. ENFORCEMENT (Obrigatório para o Requisito 5)
+    # ==========================================
+    if role != "admin":
+        # Dispara um log rastreando a tentativa de invasão ao painel
+        disparar_log_auditoria(request, usuario_id, "tentativa_acesso_painel_auditoria_403")
+        raise HTTPException(
+            status_code=403, 
+            detail="Acesso negado: Rota exclusiva para administradores do sistema."
+        )
+
+    # 3. Consome os dados do microsserviço de log
+    try:
+        # Faz um GET na porta 4000 do contêiner log-service
+        resposta = requests.get(f"{LOG_URL}/logs?limite=100", timeout=5)
+        logs = resposta.json().get("logs", []) if resposta.status_code == 200 else []
+    except Exception as e:
+        print(f"Erro ao buscar logs: {e}")
+        logs = []
+
+    # 4. Busca os nomes dos usuários para a tabela ficar legível
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT id, nome FROM usuarios")
+    usuarios_db = {str(u['id']): u['nome'] for u in cursor.fetchall()}
+    cursor.close()
+    conn.close()
+
+    # Enriquece os logs com os nomes reais
+    for log in logs:
+        uid = log.get("usuario_id")
+        log["nome_usuario"] = usuarios_db.get(uid, f"ID {uid}")
+
+    return templates.TemplateResponse(
+        request, 
+        "auditoria.html", 
+        {
+            "logs": logs,
+            "role": role,
+            "nome_usuario": request.session.get("nome_usuario", "Admin")
         }
     )

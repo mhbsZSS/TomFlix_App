@@ -10,6 +10,26 @@ services:
     volumes:
       - db_data:/var/lib/mysql
 
+  # ---------------------------------------------------
+  # NOVO: Banco de Dados em Memória para a Auditoria
+  # ---------------------------------------------------
+  redis:
+    image: redis:alpine
+    container_name: tomflix_redis
+    # Não expomos portas para o host (isolamento de segurança)
+
+  # ---------------------------------------------------
+  # NOVO: Microsserviço de Logs/Auditoria
+  # ---------------------------------------------------
+  log-service:
+    build: ./log_service
+    container_name: tomflix_log_service
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+
   auth-service:
     build: ./auth_service
     container_name: tomflix_auth_service
@@ -20,8 +40,11 @@ services:
       - DB_NAME=tomflix_db
       - SMTP_USER=${SMTP_USER}
       - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM}
+      - LOG_URL=http://log-service:4000 # Rota interna para enviar logs de login
     depends_on:
       - db
+      - log-service
 
   app:
     build: .
@@ -30,6 +53,7 @@ services:
       - "8221:8000" 
     environment:
       - AUTH_URL=http://auth-service:3000
+      - LOG_URL=http://log-service:4000 # Rota interna para enviar logs de uso/403
       - TMDB_API_KEY=${TMDB_API_KEY}
       - SECRET_KEY=${SECRET_KEY}
       - DB_HOST=db
@@ -41,5 +65,7 @@ services:
     depends_on:
       - auth-service
       - db
+      - log-service
+
 volumes:
   db_data:

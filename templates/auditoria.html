@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>TomFlix - Auditoria (Admin)</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #141414; color: #fff; margin: 0; padding: 20px; }
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #E50914; padding-bottom: 10px; margin-bottom: 20px; }
+        h1 { color: #E50914; margin: 0; }
+        .btn-voltar { background-color: #333; color: white; text-decoration: none; padding: 8px 15px; border-radius: 4px; }
+        table { width: 100%; border-collapse: collapse; background-color: #222; margin-top: 20px; }
+        th, td { border: 1px solid #444; padding: 12px; text-align: left; }
+        th { background-color: #E50914; color: white; }
+        tr:nth-child(even) { background-color: #1a1a1a; }
+        .tag-acao { font-family: monospace; background-color: #333; padding: 3px 6px; border-radius: 3px; color: #ffa500; }
+        .tag-403 { color: #E50914; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Painel de Auditoria</h1>
+        <div>
+            <a href="/catalogo" class="btn-voltar">Voltar ao Catálogo</a>
+        </div>
+    </header>
+
+    <p>Mostrando os eventos mais recentes registrados no Redis Streams.</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Data / Hora</th>
+                <th>Usuário</th>
+                <th>Ação Executada</th>
+                <th>IP de Origem</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <!-- Formatação simples do Timestamp ISO do Python -->
+                <td>{{ log.timestamp[:19].replace('T', ' ') }}</td>
+                <td>{{ log.nome_usuario }}</td>
+                <td>
+                    <span class="tag-acao {% if '403' in log.acao %}tag-403{% endif %}">
+                        {{ log.acao }}
+                    </span>
+                </td>
+                <td>{{ log.ip_origem }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" style="text-align: center;">Nenhum evento registrado ainda.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

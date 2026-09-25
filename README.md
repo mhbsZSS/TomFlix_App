@@ -91,6 +91,34 @@ Se a arquitetura fosse alterada para o Padrão B, o papel do usuário (`role`) v
 ![Erro 403](assets/img/erro403.png)
 
 ---
+
+## 📋 Atividade 5: Trilha de Auditoria (Event Logging) com Redis
+
+Nesta etapa, o projeto evoluiu de um registro passivo para um monitoramento ativo do comportamento dos usuários. Para não sobrecarregar o banco de dados relacional (MariaDB) com um fluxo constante de inserções, implementou-se o padrão de separação de responsabilidades (Segregation of Duties) através de um novo microsserviço apoiado por um banco em memória.
+
+### Arquitetura e Decisões Técnicas
+
+*   **Novo Microsserviço (`log-service`):** Um contêiner FastAPI isolado na rede interna do Docker, sem exposição de portas para o host, garantindo que logs não possam ser forjados externamente.
+*   **Banco em Memória (Redis Streams):** O Redis foi escolhido por sua altíssima velocidade em operações de escrita (write-heavy). Utilizou-se a estrutura de dados `Streams` (comandos `XADD` e `XREVRANGE`), que é nativamente desenhada para logs de eventos contínuos, garantindo ordenação cronológica rigorosa (timestamping automático) que uma simples estrutura de lista (`LPUSH`) não ofereceria de forma tão eficiente.
+*   **Rastreio Distribuído (Hooks):** O Catálogo e o Auth-Service atuam como produtores de eventos. Eles disparam requisições assíncronas internas relatando sucessos e falhas diretamente para o `log-service`.
+
+### Eventos Monitorados
+O sistema rastreia e armazena centralmente ações críticas, registrando *Quem*, *O que*, *Quando* e o *IP de Origem*:
+- `login` e `logout`
+- `favoritou_filme_{id}` / `desfavoritou_filme_{id}`
+- `comentou_no_filme_{id}`
+- `apagou_comentario_{id}` (Ação de moderação)
+- **Segurança:** `tentativa_negada_403_*` (Gera alerta imediato sobre tentativas de violação de privilégios).
+
+### Evidências Visuais (Atividade 5)
+
+**1. A Nova Infraestrutura (Docker Compose):** *Comprova a adição do serviço Redis e do Log-Service operando exclusivamente na rede interna.*
+![Infraestrutura Docker](assets/img/docker_compose_redis.png)
+
+**2. Consulta de Logs (Visão do Admin):** *O endpoint protegido (`/auditoria`) exibe com sucesso o fluxo de ações dos usuários organizados cronologicamente, incluindo as interceptações de erro 403.*
+![Painel de Auditoria](assets/img/painel_auditoria.png)
+
+---
 *Desenvolvido por Marcio Hernani - Estudante de Tecnologia em Sistemas Inteligentes*
 ---
 *Disciplina: Computação em Nuvem - Professor Me. Allan L. R. Siriani* - (@siriani).
