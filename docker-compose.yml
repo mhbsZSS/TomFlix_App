@@ -42,8 +42,6 @@ services:
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
-    networks:
-      - default # ou a rede interna que você estiver usando na stack
 
   auth-service:
     build: ./auth_service
