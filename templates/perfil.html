@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Perfil - TomFlix</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #141414; color: white; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background-color: #222; padding: 30px; border-radius: 8px; }
+        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; border-bottom: 1px solid #444; padding-bottom: 20px; }
+        .perfil-info { display: flex; align-items: center; gap: 20px; }
+        .foto-perfil { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid #E50914; background-color: #333; }
+        .btn-voltar { background-color: #333; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold; }
+        .btn-salvar { background-color: #E50914; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-salvar:hover { background-color: #f40612; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #aaa; }
+        input[type="file"], textarea { width: 100%; padding: 10px; background-color: #333; color: white; border: 1px solid #444; border-radius: 4px; box-sizing: border-box; }
+        .favoritos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-top: 20px; }
+        .filme-card { background-color: #333; padding: 10px; border-radius: 4px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="perfil-info">
+                <!-- Mostra a URL gerada pelo MinIO ou uma imagem padrão cinza se não tiver -->
+                {% if foto_url %}
+                    <img src="{{ foto_url }}" alt="Foto de Perfil" class="foto-perfil">
+                {% else %}
+                    <div class="foto-perfil" style="display: flex; align-items: center; justify-content: center; font-size: 40px; color: #555;">👤</div>
+                {% endif %}
+                <div>
+                    <h1 style="margin: 0; color: #E50914;">{{ usuario.nome }}</h1>
+                    <p style="margin: 5px 0 0 0; color: #ccc;">Papel: {{ role }}</p>
+                </div>
+            </div>
+            <a href="/" class="btn-voltar">Voltar ao Catálogo</a>
+        </div>
+
+        <!-- FORMULÁRIO DE EDIÇÃO DE PERFIL -->
+        <form action="/perfil/editar" method="POST" enctype="multipart/form-data" style="margin-bottom: 40px;">
+            <div class="form-group">
+                <label for="foto">Atualizar Foto de Perfil (Máx 2MB):</label>
+                <input type="file" id="foto" name="foto" accept="image/*">
+            </div>
+            <div class="form-group">
+                <label for="bio">Minha Biografia (Sobre mim):</label>
+                <textarea id="bio" name="bio" rows="4" placeholder="Escreva algo sobre você e os filmes que gosta...">{{ usuario.bio if usuario.bio else '' }}</textarea>
+            </div>
+            <button type="submit" class="btn-salvar">Salvar Alterações</button>
+        </form>
+
+        <!-- LISTA DE FILMES FAVORITOS -->
+        <h2 style="border-bottom: 1px solid #444; padding-bottom: 10px;">Meus Filmes Favoritos</h2>
+        {% if favoritos %}
+            <div class="favoritos-grid">
+                {% for filme in favoritos %}
+                    <div class="filme-card">
+                        <h4 style="margin: 0 0 5px 0;">{{ filme.titulo }}</h4>
+                        <small style="color: #aaa;">{{ filme.ano }}</small>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p style="color: #888;">Você ainda não favoritou nenhum filme.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

@@ -30,6 +30,21 @@ services:
     depends_on:
       - redis
 
+  minio:
+    image: minio/minio
+    container_name: tomflix_minio
+    ports:
+      - "9000:9000" # Porta da API (Object Storage)
+      - "9001:9001" # Porta do Console (Painel Web)
+    environment:
+      - MINIO_ROOT_USER=admin_tomflix
+      - MINIO_ROOT_PASSWORD=SenhaForte123!
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - default # ou a rede interna que você estiver usando na stack
+
   auth-service:
     build: ./auth_service
     container_name: tomflix_auth_service
@@ -62,6 +77,11 @@ services:
       - DB_NAME=tomflix_db
       - SMTP_USER=${SMTP_USER}
       - SMTP_PASS=${SMTP_PASS}
+      # Configurações do Object Storage (MinIO)
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=admin_tomflix
+      - MINIO_SECRET_KEY=SenhaForte123!
+      - MINIO_BUCKET_NAME=perfis-tomflix
     depends_on:
       - auth-service
       - db
@@ -69,3 +89,4 @@ services:
 
 volumes:
   db_data:
+  minio_data:
