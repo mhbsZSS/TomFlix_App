@@ -24,7 +24,7 @@ services:
       - redis
 
   minio:
-    image: quay.io/minio/minio:RELEASE.2023-10-16T04-13-43Z
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
     container_name: tomflix_minio
     ports:
       - "9000:9000"
