@@ -31,7 +31,7 @@ services:
       - redis
 
   minio:
-    image: quay.io/minio/minio:latest
+    image: bitnami/minio:latest
     container_name: tomflix_minio
     ports:
       - "9000:9000" # Porta da API (Object Storage)
