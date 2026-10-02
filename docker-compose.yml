@@ -31,7 +31,7 @@ services:
       - redis
 
   minio:
-    image: bitnami/minio:latest
+    image: minio/minio:edge
     container_name: tomflix_minio
     ports:
       - "9000:9000" # Porta da API (Object Storage)
