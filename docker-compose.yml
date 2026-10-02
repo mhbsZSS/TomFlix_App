@@ -8,7 +8,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: tomflix_db
     volumes:
-      - db_data:/var/lib/mysql
+      - db_data_m:/var/lib/mysql
 
   redis:
     image: redis:alpine
@@ -25,16 +25,14 @@ services:
 
   minio:
     image: ghcr.io/coollabsio/minio:latest
-    container_name: tomflix_minio
-    ports:
-      - "9000:9000"
-      - "9001:9001"
+    container_name: tomflix_minio_m
+    # BLOCO DE PORTAS REMOVIDO: O MinIO agora roda de forma 100% privada
     environment:
       - MINIO_ROOT_USER=${MINIO_USER}
       - MINIO_ROOT_PASSWORD=${MINIO_PASSWORD}
     command: server /data --console-address ":9001"
     volumes:
-      - minio_data:/data
+      - minio_data_m:/data
 
   auth-service:
     build: ./auth_service
@@ -68,7 +66,8 @@ services:
       - DB_NAME=tomflix_db
       - SMTP_USER=${SMTP_USER}
       - SMTP_PASS=${SMTP_PASS}
-      - MINIO_ENDPOINT=minio:9000
+      # O backend acessa o MinIO pela rede interna do Docker
+      - MINIO_ENDPOINT=minio:9000 
       - MINIO_ACCESS_KEY=${MINIO_USER}
       - MINIO_SECRET_KEY=${MINIO_PASSWORD}
       - MINIO_BUCKET_NAME=perfis-tomflix
@@ -78,5 +77,5 @@ services:
       - log-service
 
 volumes:
-  db_data:
-  minio_data:
+  db_data_m:
+  minio_data_m:
