@@ -57,8 +57,10 @@
             <div class="favoritos-grid">
                 {% for filme in favoritos %}
                     <div class="filme-card">
-                        <h4 style="margin: 0 0 5px 0;">{{ filme.titulo }}</h4>
-                        <small style="color: #aaa;">{{ filme.ano }}</small>
+                        {% if filme.poster_path %}
+                            <img src="https://image.tmdb.org/t/p/w200{{ filme.poster_path }}" alt="{{ filme.titulo }}" style="width: 100%; border-radius: 4px;">
+                        {% endif %}
+                        <h4 style="margin: 10px 0 5px 0; font-size: 14px;">{{ filme.titulo }}</h4>
                     </div>
                 {% endfor %}
             </div>

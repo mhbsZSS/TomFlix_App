@@ -354,29 +354,27 @@ def pagina_perfil(request: Request):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
-    # Busca os dados do usuário
-    cursor.execute("SELECT nome, foto_perfil, bio FROM usuarios WHERE id = %s", (usuario_id,))
+    # CORREÇÃO 1: Utilização de 'avatar_url' conforme o schema do MariaDB
+    cursor.execute("SELECT nome, avatar_url, bio FROM usuarios WHERE id = %s", (usuario_id,))
     usuario = cursor.fetchone()
 
-    # Busca os filmes favoritos desse usuário
+    # CORREÇÃO 2: Busca direta na tabela de favoritos sem JOIN em tabela inexistente
     cursor.execute("""
-        SELECT f.id, f.titulo, f.ano 
-        FROM favoritos fav
-        JOIN filmes f ON fav.filme_id = f.id
-        WHERE fav.usuario_id = %s
+        SELECT id, titulo, poster_path 
+        FROM favoritos 
+        WHERE usuario_id = %s
     """, (usuario_id,))
     favoritos = cursor.fetchall()
     cursor.close()
     conn.close()
 
-    # REQUISITO 3: Geração da URL Pré-assinada
     foto_url = None
-    if usuario and usuario.get("foto_perfil"):
+    if usuario and usuario.get("avatar_url"):
         try:
             foto_url = minio_client.presigned_get_object(
                 MINIO_BUCKET_NAME, 
-                usuario["foto_perfil"],
-                expires=timedelta(hours=1) # O link morre em 1 hora
+                usuario["avatar_url"],
+                expires=timedelta(hours=1) 
             )
         except Exception as e:
             print(f"Erro ao gerar URL da foto: {e}")
@@ -399,33 +397,27 @@ async def editar_perfil(
     bio: str = Form(""),
     foto: UploadFile = File(None)
 ):
-    # REQUISITO 4: Identidade verificada apenas pela sessão (não confia no frontend)
     usuario_id = request.session.get("usuario_id")
     if not usuario_id:
         raise HTTPException(status_code=401, detail="Não autorizado")
 
     nome_arquivo = None
 
-    # REQUISITO 2: Validação de Upload
     if foto and foto.filename:
-        # Valida o tipo MIME (deve começar com 'image/')
         if not foto.content_type.startswith("image/"):
             raise HTTPException(status_code=400, detail="Apenas ficheiros de imagem (JPG, PNG, etc.) são permitidos.")
         
-        # Valida o tamanho físico do arquivo (Máximo 2MB)
-        foto.file.seek(0, 2) # Move o cursor para o final do ficheiro
-        tamanho = foto.file.tell() # Pega o tamanho em bytes
-        foto.file.seek(0) # Volta o cursor para o início para poder ler e salvar
+        foto.file.seek(0, 2) 
+        tamanho = foto.file.tell() 
+        foto.file.seek(0) 
         
         if tamanho > 2 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="A imagem deve ter no máximo 2MB.")
 
-        # Gera um nome único no MinIO (ex: perfil_3_a1b2c3d4.jpg)
         extensao = foto.filename.split(".")[-1]
         nome_arquivo = f"perfil_{usuario_id}_{uuid.uuid4().hex}.{extensao}"
 
         try:
-            # Envia o ficheiro binário para o MinIO
             minio_client.put_object(
                 MINIO_BUCKET_NAME,
                 nome_arquivo,
@@ -437,18 +429,16 @@ async def editar_perfil(
             print(f"Erro no upload do MinIO: {e}")
             raise HTTPException(status_code=500, detail="Erro ao salvar a imagem no servidor.")
 
-    # Atualiza a referência no MariaDB
     conn = get_db_connection()
     cursor = conn.cursor()
     
     if nome_arquivo:
-        # Atualiza bio e a foto
+        # CORREÇÃO 3: Atualiza a coluna correta (avatar_url)
         cursor.execute(
-            "UPDATE usuarios SET bio = %s, foto_perfil = %s WHERE id = %s", 
+            "UPDATE usuarios SET bio = %s, avatar_url = %s WHERE id = %s", 
             (bio, nome_arquivo, usuario_id)
         )
     else:
-        # Atualiza apenas a bio, mantendo a foto antiga intacta
         cursor.execute(
             "UPDATE usuarios SET bio = %s WHERE id = %s", 
             (bio, usuario_id)
