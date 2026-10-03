@@ -1,14 +1,15 @@
 from fastapi import FastAPI, Request, Form, HTTPException, File, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 import os
-import requests # O Pulo do Gato: Biblioteca para fazer requisições HTTP internas
+import requests 
 from database import get_db_connection
-import uuid # Para gerar nomes únicos para as fotos
-from datetime import timedelta # Para o tempo de expiração da URL
+import uuid 
+from datetime import timedelta 
 from minio import Minio
 from minio.error import S3Error
+
 
 # ==========================================
 # CONFIGURAÇÃO DO MINIO (OBJECT STORAGE)
@@ -178,6 +179,7 @@ def comentar_filme(
         conn.close()
 
     return RedirectResponse(url="/catalogo", status_code=303)
+
 @app.post("/apagar-comentario/{comentario_id}")
 def apagar_comentario(request: Request, comentario_id: int):
     usuario_id = request.session.get("usuario_id")
@@ -255,13 +257,8 @@ def exibir_catalogo(request: Request):
     
     if resultado_usuario:
         nome_usuario = resultado_usuario[0]
-        avatar_ref = resultado_usuario[1]
-        if avatar_ref:
-            try:
-                url_interna = minio_client.presigned_get_object(MINIO_BUCKET_NAME, avatar_ref, expires=timedelta(hours=1))
-                foto_url_header = url_interna.replace("minio:9000", "localhost:9000")
-            except Exception:
-                pass
+        if resultado_usuario[1]: 
+            foto_url_header = f"/avatar/{resultado_usuario[1]}"
 
     cursor.execute("SELECT tmdb_movie_id FROM favoritos WHERE usuario_id = %s", (usuario_id,))
     favoritos_ids = [linha[0] for linha in cursor.fetchall()]
@@ -339,6 +336,15 @@ def painel_auditoria(request: Request):
         }
     )
 
+@app.get("/avatar/{nome_arquivo}")
+def obter_avatar(nome_arquivo: str):
+    try:
+        # O backend busca a imagem diretamente na rede fechada do Docker
+        resposta = minio_client.get_object(MINIO_BUCKET_NAME, nome_arquivo)
+        return StreamingResponse(resposta.stream(32*1024), media_type="image/jpeg")
+    except Exception:
+        raise HTTPException(status_code=404, detail="Avatar não encontrado")
+    
 @app.get("/perfil", response_class=HTMLResponse)
 def pagina_perfil(request: Request):
     usuario_id = request.session.get("usuario_id")
@@ -357,16 +363,7 @@ def pagina_perfil(request: Request):
 
     foto_url = None
     if usuario and usuario.get("avatar_url"):
-        try:
-            url_interna = minio_client.presigned_get_object(
-                MINIO_BUCKET_NAME, 
-                usuario["avatar_url"],
-                expires=timedelta(hours=1) 
-            )
-            
-            foto_url = url_interna.replace("minio:9000", "localhost:9000")
-        except Exception as e:
-            print(f"Erro ao gerar URL da foto: {e}")
+        foto_url = f"/avatar/{usuario['avatar_url']}"
 
     return templates.TemplateResponse(request, "perfil.html", {
         "usuario": usuario, 
