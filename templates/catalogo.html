@@ -103,15 +103,21 @@
     <header>
         <h1>TomFlix</h1>
         <div style="display: flex; align-items: center; gap: 20px;">
+            
+            <!-- EXIBIÇÃO DA FOTO DE PERFIL NO CABEÇALHO -->
+            {% if foto_url %}
+                <img src="{{ foto_url }}" alt="Perfil" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #E50914;">
+            {% else %}
+                <div style="width: 40px; height: 40px; border-radius: 50%; background-color: #333; display: flex; align-items: center; justify-content: center; border: 2px solid #E50914; font-size: 20px;">👤</div>
+            {% endif %}
+
             <span style="color: #fff; font-size: 1rem;">
                 Olá, <strong>{{ nome_usuario }}</strong> 
                 <span style="font-size: 0.8rem; color: #aaa;">[{{ role }}]</span>
             </span>
 
-            <!-- NOVO: Link de ligação com a página de Perfil -->
             <a href="/perfil" style="background-color: #1f80e0; color: white; text-decoration: none; padding: 5px 10px; border-radius: 3px; font-weight: bold;">Meu Perfil</a>
 
-            <!-- Botão Exclusivo do Admin -->
             {% if role == 'admin' %}
                 <a href="/auditoria" style="background-color: #E50914; color: white; text-decoration: none; padding: 5px 10px; border-radius: 3px; font-weight: bold;">Auditoria (Logs)</a>
             {% endif %}

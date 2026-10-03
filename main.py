@@ -235,63 +235,57 @@ def exibir_catalogo(request: Request):
     if not tmdb_key:
         raise HTTPException(status_code=500, detail="API Key do TMDB ausente no .env")
 
-    # --- 1. CHAMADAS AO TMDB ---
     url_search = f"https://api.themoviedb.org/3/search/person?query=Tom+Hanks&api_key={tmdb_key}&language=pt-BR"
     resposta_search = requests.get(url_search).json()
     person_id = resposta_search["results"][0]["id"]
     
     url_movies = f"https://api.themoviedb.org/3/person/{person_id}/movie_credits?api_key={tmdb_key}&language=pt-BR"
     resposta_movies = requests.get(url_movies).json()
-    
     filmes = [f for f in resposta_movies.get("cast", []) if f.get("poster_path")]
 
-    # --- 2. BUSCA NO BANCO DE DADOS (SEGREGAÇÃO) ---
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # -----------------------------------------------------
-    # NOVO: Busca o nome do usuário logado para o cabeçalho
-    # -----------------------------------------------------
-    cursor.execute("SELECT nome FROM usuarios WHERE id = %s", (usuario_id,))
+    # BUSCA O NOME E O AVATAR DO USUÁRIO PARA O CABEÇALHO
+    cursor.execute("SELECT nome, avatar_url FROM usuarios WHERE id = %s", (usuario_id,))
     resultado_usuario = cursor.fetchone()
-    nome_usuario = resultado_usuario[0] if resultado_usuario else "Usuário"
+    
+    nome_usuario = "Usuário"
+    foto_url_header = None
+    
+    if resultado_usuario:
+        nome_usuario = resultado_usuario[0]
+        avatar_ref = resultado_usuario[1]
+        if avatar_ref:
+            try:
+                url_interna = minio_client.presigned_get_object(MINIO_BUCKET_NAME, avatar_ref, expires=timedelta(hours=1))
+                foto_url_header = url_interna.replace("minio:9000", "localhost:9000")
+            except Exception:
+                pass
 
-    # Busca os favoritos do usuário logado
     cursor.execute("SELECT tmdb_movie_id FROM favoritos WHERE usuario_id = %s", (usuario_id,))
     favoritos_ids = [linha[0] for linha in cursor.fetchall()]
 
-    # Busca TODOS os comentários (trazendo o ID do comentário e quem escreveu)
     cursor.execute("SELECT id, tmdb_movie_id, texto, usuario_id FROM comentarios ORDER BY criado_em DESC")
     comentarios_db = cursor.fetchall()
-    
     cursor.close()
     conn.close()
 
-    # Agrupa os comentários como dicionários para o HTML ter acesso aos IDs
     comentarios_por_filme = {}
     for cid, movie_id, texto, uid in comentarios_db:
         if movie_id not in comentarios_por_filme:
             comentarios_por_filme[movie_id] = []
-        comentarios_por_filme[movie_id].append({
-            "id": cid,
-            "texto": texto,
-            "usuario_id": uid
-        })
+        comentarios_por_filme[movie_id].append({"id": cid, "texto": texto, "usuario_id": uid})
 
-    # --- 3. RENDERIZAÇÃO ---
-    # Enviamos também a 'role' e o 'usuario_id' para o HTML saber quando desenhar o botão de apagar
-    return templates.TemplateResponse(
-        request, 
-        "catalogo.html", 
-        {
-            "filmes": filmes,
-            "favoritos": favoritos_ids,
-            "comentarios": comentarios_por_filme,
-            "role": request.session.get("role"),
-            "usuario_logado_id": usuario_id,
-            "nome_usuario": nome_usuario
-        }
-    )
+    return templates.TemplateResponse(request, "catalogo.html", {
+        "filmes": filmes,
+        "favoritos": favoritos_ids,
+        "comentarios": comentarios_por_filme,
+        "role": request.session.get("role"),
+        "usuario_logado_id": usuario_id,
+        "nome_usuario": nome_usuario,
+        "foto_url": foto_url_header 
+    })
 
 @app.get("/auditoria", response_class=HTMLResponse)
 def painel_auditoria(request: Request):
@@ -353,17 +347,10 @@ def pagina_perfil(request: Request):
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    
-    # CORREÇÃO 1: Utilização de 'avatar_url' conforme o schema do MariaDB
     cursor.execute("SELECT nome, avatar_url, bio FROM usuarios WHERE id = %s", (usuario_id,))
     usuario = cursor.fetchone()
 
-    # CORREÇÃO 2: Busca direta na tabela de favoritos sem JOIN em tabela inexistente
-    cursor.execute("""
-        SELECT id, titulo, poster_path 
-        FROM favoritos 
-        WHERE usuario_id = %s
-    """, (usuario_id,))
+    cursor.execute("SELECT id, titulo, poster_path FROM favoritos WHERE usuario_id = %s", (usuario_id,))
     favoritos = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -371,25 +358,23 @@ def pagina_perfil(request: Request):
     foto_url = None
     if usuario and usuario.get("avatar_url"):
         try:
-            foto_url = minio_client.presigned_get_object(
+            url_interna = minio_client.presigned_get_object(
                 MINIO_BUCKET_NAME, 
                 usuario["avatar_url"],
                 expires=timedelta(hours=1) 
             )
+            
+            foto_url = url_interna.replace("minio:9000", "localhost:9000")
         except Exception as e:
             print(f"Erro ao gerar URL da foto: {e}")
 
-    return templates.TemplateResponse(
-        request, 
-        "perfil.html", 
-        {
-            "usuario": usuario, 
-            "favoritos": favoritos,
-            "foto_url": foto_url,
-            "nome_usuario": request.session.get("nome_usuario"),
-            "role": request.session.get("role")
-        }
-    )
+    return templates.TemplateResponse(request, "perfil.html", {
+        "usuario": usuario, 
+        "favoritos": favoritos,
+        "foto_url": foto_url,
+        "nome_usuario": request.session.get("nome_usuario"),
+        "role": request.session.get("role")
+    })
 
 @app.post("/perfil/editar")
 async def editar_perfil(
