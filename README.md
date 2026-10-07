@@ -123,6 +123,33 @@ O sistema rastreia e armazena centralmente ações críticas, registrando *Quem*
 ![E-mail Brevo](assets/img/emailBrevo.png)
 
 ---
+
+## 👤 Atividade 6: Upload e Perfil do Usuário
+
+Nesta etapa final do bimestre, o catálogo ganhou contornos de rede social com a introdução de uma página de perfil personalizável. A principal evolução arquitetural foi a integração de um serviço de *Object Storage* local para lidar de forma escalável com o armazenamento de arquivos binários, aliviando o banco de dados relacional.
+
+### Arquitetura e Decisões Técnicas
+
+*   **Object Storage (MinIO):** Contêiner dedicado operando como um servidor de armazenamento compatível com o padrão AWS S3. As imagens de perfil são injetadas fisicamente em *buckets* privados no MinIO, enquanto o MariaDB armazena unicamente a referência em texto (nome gerado com UUID) na coluna `avatar_url`.
+*   **Padrão BFF (Backend for Frontend):** Para contornar restrições de rede e manter a segurança da infraestrutura (já que a porta do MinIO não é exposta ao host), o FastAPI foi configurado como um *proxy*. O backend busca o binário da imagem diretamente na rede interna do Docker e o transmite para o navegador cliente utilizando `StreamingResponse`.
+*   **Segurança e Validação de Upload:** O recebimento de dados via `multipart/form-data` possui validações rigorosas no servidor (API). O sistema bloqueia a transação caso o arquivo não possua um *MIME type* de imagem (`image/*`) ou exceda o limite rígido de 2MB de tamanho.
+*   **Interface Dinâmica:** Renderização do avatar circular e biografia na nova rota `/perfil`, além da injeção da miniatura atualizada no cabeçalho global (Navbar) ao lado das credenciais da sessão.
+
+### Evidências Visuais (Atividade 6)
+
+**1. Página de Perfil do Usuário:**
+*Comprova a exibição da interface de upload, o avatar recuperado com sucesso do MinIO via proxy, biografia atualizada no MariaDB e a galeria de filmes favoritados.*
+![Perfil do Usuário](assets/img/perfil_Usuario.png)
+
+**2. Avatar Integrado ao Cabeçalho Global:**
+*Demonstra a aplicação do padrão BFF no carregamento de mídia, onde a miniatura do perfil é renderizada na página de catálogo atestando a conexão do FastAPI com o Object Storage.*
+![Avatar no Cabeçalho](assets/img/meu_perfil_Usuario.png)
+![Atualização de Perfil](assets/img/atualizacao_perfil_Usuario.png)
+
+**Arquitetura final de microsserviços em execução no Portainer:**
+*Consolidação de todas as atividades propostas até o presente momento, com a evidência da criação de todos os containeres utilizados para a execução da atividade proposta no TomFlix.*
+![Arquitetura Final](assets/img/portainer.png)
+---
 *Desenvolvido por Marcio Hernani - Estudante de Tecnologia em Sistemas Inteligentes*
 ---
 *Disciplina: Computação em Nuvem - Professor Me. Allan L. R. Siriani* - (@siriani).
