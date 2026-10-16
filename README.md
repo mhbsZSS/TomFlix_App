@@ -150,6 +150,41 @@ Nesta etapa final do bimestre, o catálogo ganhou contornos de rede social com a
 *Consolidação de todas as atividades propostas até o presente momento, com a evidência da criação de todos os containeres utilizados para a execução da atividade proposta no TomFlix.*
 ![Arquitetura Final](assets/img/portainer.png)
 ---
+### Documentação e Relatório Técnico
+O relatório completo detalhando a arquitetura, desafios e implementação desta atividade encontra-se disponível no diretório de documentação:
+* 📄 **[Relatório P1 - Integração Stripe (PDF)](docs/P1_ISW055_Marcio_Silva.pdf)**
+---
+
+## 💳 Atividade 7: Integração de Pagamentos com Stripe (Checkout e Webhooks)
+
+Nesta etapa, a plataforma foi monetizada através da integração com o gateway de pagamentos Stripe. O objetivo foi implementar um fluxo completo de assinatura premium, lidando com sessões de checkout externas e webhooks para sincronização de status no banco de dados local.
+
+### Funcionalidades Implementadas
+* **Stripe Checkout:** Criação de sessões dinâmicas de pagamento redirecionando o usuário para o ambiente seguro do Stripe.
+* **Webhooks:** Criação de um endpoint no FastAPI para escutar eventos assíncronos do Stripe e atualizar a flag `is_premium` do usuário no banco de dados MariaDB.
+* **Interface Dinâmica:** Botão de "Desbloquear Premium" no perfil do usuário, com atualização visual no catálogo.
+
+### Evidências Visuais (Atividade 7)
+
+**1. Ambiente de Checkout (Stripe):**
+*Página de pagamento segura hospedada pelo Stripe, integrada ao fluxo do TomFlix.*
+![Serviço Stripe](assets/img/servicoStripe.png)
+
+**2. Tela de Perfil com Opção Premium:**
+*Interface do usuário exibindo a opção de assinatura Premium.*
+![Perfil do Usuário João](assets/img/perfilUsuarioJoao.png)
+
+**3. Atualização no Catálogo/Perfil:**
+*Reflexo visual na interface após as interações do usuário com o sistema.*
+![Meu Perfil Usuário João](assets/img/meuperfilUsuarioJoao.png)
+
+---
+
+**Arquitetura final de microsserviços em execução no Portainer:**
+*Consolidação de todas as atividades propostas até o presente momento, com a evidência da criação de todos os containeres utilizados para a execução da atividade proposta no TomFlix.*
+![Arquitetura Final](assets/img/portainer.png)
+---
+
 *Desenvolvido por Marcio Hernani - Estudante de Tecnologia em Sistemas Inteligentes*
 ---
 *Disciplina: Computação em Nuvem - Professor Me. Allan L. R. Siriani* - (@siriani).

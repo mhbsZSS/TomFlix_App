@@ -9,6 +9,7 @@ import uuid
 from datetime import timedelta 
 from minio import Minio
 from minio.error import S3Error
+import stripe
 
 
 # ==========================================
@@ -40,9 +41,17 @@ app = FastAPI(title="TomFlix App")
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY"))
 templates = Jinja2Templates(directory="templates")
 
+# ==========================================
+# CONFIGURAÇÃO DO STRIPE (PAGAMENTOS)
+# ==========================================
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+STRIPE_PRICE_ID = os.getenv("STRIPE_PRICE_ID")
+# Esta chave secreta do webhook nós vamos pegar no Stripe mais tarde!
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+
 # Endereço interno do microsserviço (definido no docker-compose.yml)
 AUTH_URL = "http://auth-service:3000"
-LOG_URL = os.getenv("LOG_URL", "http://log-service:4000") # <-- ADICIONE AQUI
+LOG_URL = os.getenv("LOG_URL", "http://log-service:4000")
 
 # --- FUNÇÃO DE AUDITORIA ---
 def disparar_log_auditoria(request: Request, usuario_id: int, acao: str):
@@ -353,7 +362,7 @@ def pagina_perfil(request: Request):
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT nome, avatar_url, bio FROM usuarios WHERE id = %s", (usuario_id,))
+    cursor.execute("SELECT nome, avatar_url, bio, is_premium FROM usuarios WHERE id = %s", (usuario_id,))
     usuario = cursor.fetchone()
 
     cursor.execute("SELECT id, titulo, poster_path FROM favoritos WHERE usuario_id = %s", (usuario_id,))
@@ -431,3 +440,91 @@ async def editar_perfil(
     conn.close()
 
     return RedirectResponse(url="/perfil", status_code=303)
+
+# ==========================================
+# ROTAS DE ASSINATURA (STRIPE) - ATIVIDADE 7
+# ==========================================
+
+@app.post("/checkout")
+def criar_checkout_session(request: Request):
+    usuario_id = request.session.get("usuario_id")
+    if not usuario_id:
+        return RedirectResponse(url="/", status_code=303)
+        
+    try:
+        # Captura o domínio atual automaticamente (ex: http://localhost:8000)
+        domain_url = str(request.base_url).rstrip("/")
+        
+        # Cria a sessão no Stripe
+        checkout_session = stripe.checkout.Session.create(
+            line_items=[
+                {
+                    'price': STRIPE_PRICE_ID,
+                    'quantity': 1,
+                },
+            ],
+            mode='subscription',
+            # Redireciona de volta após o sucesso ou cancelamento
+            success_url=domain_url + '/catalogo?msg=assinatura_sucesso',
+            cancel_url=domain_url + '/perfil?msg=assinatura_cancelada',
+            # O Pulo do Gato: mandamos o ID do usuário oculto para o Stripe
+            client_reference_id=str(usuario_id) 
+        )
+        
+        # Redireciona o usuário para a página de pagamento segura do Stripe
+        return RedirectResponse(url=checkout_session.url, status_code=303)
+        
+    except Exception as e:
+        print(f"Erro ao criar sessão do Stripe: {e}")
+        return RedirectResponse(url="/perfil?msg=erro_stripe", status_code=303)
+
+
+@app.post("/webhook")
+async def stripe_webhook(request: Request):
+    """
+    Esta rota não é acessada pelo usuário, é o Stripe que a chama 
+    por debaixo dos panos quando o pagamento é aprovado.
+    """
+    # O Stripe exige o body cru (raw) para validar a assinatura de segurança
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature")
+
+    try:
+        # Validação obrigatória de segurança
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
+    except ValueError as e:
+        # Payload inválido
+        raise HTTPException(status_code=400, detail="Payload inválido")
+    except stripe.error.SignatureVerificationError as e:
+        # Assinatura de segurança falsa/inválida
+        raise HTTPException(status_code=400, detail="Assinatura inválida")
+
+    # Verifica se a notificação é de um pagamento concluído com sucesso
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+        
+        # Lembra que mandamos o ID do usuário oculto? Agora o Stripe nos devolve!
+        usuario_id = session.get("client_reference_id")
+        customer_id = session.get("customer")
+
+        if usuario_id:
+            # Efetiva o benefício atualizando o banco de dados
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            try:
+                cursor.execute(
+                    "UPDATE usuarios SET is_premium = TRUE, stripe_customer_id = %s WHERE id = %s",
+                    (customer_id, usuario_id)
+                )
+                conn.commit()
+                print(f"Sucesso! Usuário {usuario_id} agora é PREMIUM.")
+            except Exception as e:
+                print(f"Erro ao atualizar banco no webhook: {e}")
+            finally:
+                cursor.close()
+                conn.close()
+
+    # O Stripe espera um status 200 para saber que recebemos a mensagem
+    return {"status": "sucesso"}
